@@ -21,7 +21,7 @@ static const CGFloat kDurationAnimation = 0.25;
 @property (nonatomic, strong) UIView *pillarB;
 @property (nonatomic, strong) UIView *pillarC;
 
-// 保存装在对应柱子上的圆盘
+// 保存装在对应柱子上的圆盘，如：containerA表示在A柱子上的圆盘，可能为空
 @property (nonatomic, strong) NSMutableArray *containerA;
 @property (nonatomic, strong) NSMutableArray *containerB;
 @property (nonatomic, strong) NSMutableArray *containerC;
@@ -48,6 +48,7 @@ static const CGFloat kDurationAnimation = 0.25;
     self.pillarC = [self createPillarView];
     self.pillarC.tag = 'C';
     
+    // 布局三根柱子
     NSArray *items= @[self.pillarA, self.pillarB, self.pillarC];
     CGFloat width = CGRectGetWidth(self.view.bounds);
     CGFloat height = CGRectGetHeight(self.view.bounds);
@@ -56,6 +57,7 @@ static const CGFloat kDurationAnimation = 0.25;
         view.center = CGPointMake(width * (1.0 / (items.count * 2) + (CGFloat)index / items.count), height / 2);
     }
     
+    // 圆盘默认是35个
     self.count = 35;
     self.moveCount = 0;
     self.containerA = [self createDisks];
@@ -105,7 +107,16 @@ static const CGFloat kDurationAnimation = 0.25;
     return view;
 }
 
+// 将 disks 从 fromPillar 移动到 toPillar，assitPillar辅助
+// disks:要移动的圆盘
+// fromPillar： 当前圆盘所在的位置
+// assitPillar： 所需要需要辅助柱子
+// toPillar： 目标柱子
 - (void)moveDisks:(NSArray *)disks fromPillar:(UIView *)fromPillar assistPillar:(UIView *)assitPillar toPillar:(UIView *)toPillar {
+    if (!disks.count) {
+        return;
+    }
+    
     NSMutableArray *toContainers;
     if (toPillar == self.pillarA) {
         toContainers = self.containerA;
@@ -124,31 +135,20 @@ static const CGFloat kDurationAnimation = 0.25;
         fromContrainters = self.containerC;
     }
     
-    if (disks.count == 1) {
-        UIView *view = disks.firstObject;
-        [fromContrainters removeObjectsInArray:disks];
-        [toContainers addObject:view];
-        CGFloat y = CGRectGetHeight(self.view.bounds) - ((toContainers.count - 1) * kDiskHeight + kDiskHeight / 2);
-        CGPoint center = CGPointMake(toPillar.center.x, y);
-        NSLog(@"move %@ from %c to %c, y:%0.0f", @(view.tag), (char)(fromPillar.tag), (char)(toPillar.tag), y);
-
-        [self moveView:view toCenter:center];
-    } else {
-        NSArray *retains = [disks subarrayWithRange:NSMakeRange(1, disks.count - 1)];
-        [self moveDisks:retains fromPillar:fromPillar assistPillar:toPillar toPillar:assitPillar];
-        UIView *first = disks.firstObject;
-        [toContainers addObject:first];
-        [fromContrainters removeObject:first];
-        [fromContrainters removeObjectsInArray:retains];
-        CGFloat y = CGRectGetHeight(self.view.bounds) - ((toContainers.count - 1) * kDiskHeight + kDiskHeight / 2);
-        CGPoint center = CGPointMake(toPillar.center.x, y);
-        NSLog(@"move %@ from %c to %c, y:%0.0f", @(first.tag), (char)(fromPillar.tag), (char)(toPillar.tag), y);
-        [self moveView:first toCenter:center];
-        
-        [self moveDisks:retains fromPillar:assitPillar assistPillar:fromPillar toPillar:toPillar];
-    }
+    NSArray *retains = [disks subarrayWithRange:NSMakeRange(1, disks.count - 1)];
+    [self moveDisks:retains fromPillar:fromPillar assistPillar:toPillar toPillar:assitPillar];
+    UIView *first = disks.firstObject;
+    [toContainers addObject:first];
+    [fromContrainters removeAllObjects];
+    CGFloat y = CGRectGetHeight(self.view.bounds) - ((toContainers.count - 1) * kDiskHeight + kDiskHeight / 2);
+    CGPoint center = CGPointMake(toPillar.center.x, y);
+    NSLog(@"move %@ from %c to %c, y:%0.0f", @(first.tag), (char)(fromPillar.tag), (char)(toPillar.tag), y);
+    [self moveView:first toCenter:center];
+    
+    [self moveDisks:retains fromPillar:assitPillar assistPillar:fromPillar toPillar:toPillar];
 }
 
+// 移动圆盘动画
 - (void)moveView:(UIView *)view toCenter:(CGPoint)center {
     dispatch_semaphore_t semap = dispatch_semaphore_create(0);
     dispatch_async(dispatch_get_main_queue(), ^{
